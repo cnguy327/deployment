@@ -57,7 +57,7 @@ function performSearch(req, res, isMobile) {
       offset: 0,
       currentPage: 0,
     });
-  } else if (/[^a-zA-Z0-9'’\s]+/.test(query)) {
+  } else if (/[^a-zA-Z0-9'`´′‵‘’‛\s]+/.test(query)) {
     res.render("error", {
       message: "Error: Please supply a valid query.",
     });
