@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Library Self-Checkout</title>
+    <script src="https://unpkg.com/vue@3.2.47"></script>
+    <style>
+      ul {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div v-show="!loggedIn" style="text-align: center">
+        <h1>Library Self-Checkout</h1>
+        <p>Enter your patron card number:</p>
+        <input v-model="cardNumber" @keyup.enter="validateCard" />
+        <button @click="validateCard">Login</button>
+        <p v-if="cardError" style="color: red">Invalid card number</p>
+      </div>
+      <div v-show="loggedIn" style="text-align: center">
+        <h1>Library Self-Checkout</h1>
+        <p>
+          Enter Item ID:
+          <input v-model="itemId" @keyup.enter="addItemToBasket" />
+          <button @click="addItemToBasket">Add to Basket</button>
+        </p>
+        <p v-if="itemError" style="color: red">{{ itemErrorMessage }}</p>
+
+        <h2>Checkout Basket</h2>
+
+        <ul>
+          <li v-for="(item, index) in checkoutBasket" :key="index">
+            {{ item.title }} - {{ item.author }}
+            <button @click="removeFromBasket(index)">Del</button>
+          </li>
+        </ul>
+
+        <button @click="checkoutItems">Checkout</button>
+        <p v-if="checkoutMessage">{{ checkoutMessage }}</p>
+      </div>
+    </div>
+    <script>
+      const { createApp, ref } = Vue;
+
+      const app = createApp({
+        setup() {
+          const loggedIn = ref(false);
+          const cardNumber = ref("");
+          const cardError = ref(false);
+          const itemId = ref("");
+          const itemError = ref(false);
+          const itemErrorMessage = ref("");
+          const checkoutBasket = ref([]);
+          const checkoutMessage = ref("");
+
+          async function validateCard() {
+            const response = await fetch("/ajax/validateCard", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cardNumber: cardNumber.value }),
+            });
+            if (response.ok) {
+              cardError.value = false;
+              loggedIn.value = true;
+            } else {
+              cardError.value = true;
+            }
+          }
+          async function addItemToBasket() {
+            const response = await fetch(
+              `/ajax/itemInfo?ItemID=${itemId.value}`
+            );
+            if (response.ok) {
+              const itemInfo = await response.json();
+              if (itemInfo.status === "S") {
+                checkoutBasket.value.push({
+                  itemId: parseInt(itemId.value),
+                  title: itemInfo.title,
+                  author: itemInfo.author,
+                });
+                itemError.value = false;
+              } else {
+                itemError.value = true;
+                itemErrorMessage.value =
+                  "Item not available for checkout (Status: " +
+                  itemInfo.status +
+                  ")";
+              }
+            } else {
+              itemError.value = true;
+              itemErrorMessage.value = "Item not found";
+            }
+          }
+
+          function removeFromBasket(index) {
+            checkoutBasket.value.splice(index, 1);
+          }
+
+          async function checkoutItems() {
+            try {
+              const itemIds = checkoutBasket.value.map((item) => item.itemId);
+              const response = await fetch("/ajax/checkoutItems", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  cardNumber: cardNumber.value,
+                  itemIds: itemIds,
+                }),
+              });
+              if (response.ok) {
+                checkoutBasket.value = [];
+                alert("Checkout successful!");
+                loggedIn.value = false;
+                cardNumber.value = "";
+              } else {
+                const errorData = await response.json();
+                alert(`Error: ${errorData.message}`);
+              }
+            } catch (error) {
+              console.error(error);
+              alert("An error occurred during checkout");
+            }
+          }
+
+          return {
+            loggedIn,
+            cardNumber,
+            cardError,
+            itemId,
+            itemError,
+            itemErrorMessage,
+            checkoutBasket,
+            validateCard,
+            addItemToBasket,
+            removeFromBasket,
+            checkoutItems,
+          };
+        },
+      });
+      app.mount("#app");
+    </script>
+  </body>
+</html>

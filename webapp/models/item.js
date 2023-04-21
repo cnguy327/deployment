@@ -24,84 +24,30 @@ function Item(
   this.updateCount = updateCount;
 }
 
-/* Searches the items table for the top 10 titles matching the provided query and offset*/
-Item.search = function (query, offset, callback) {
-  db.pool.getConnection(function (err, connection) {
-    connection.query(
-      "SELECT * FROM items WHERE title LIKE ? ORDER BY title LIMIT 10 OFFSET ?;",
-      [`%${query}%`, Number(offset)],
-      function (err, data) {
-        connection.release();
-        if (err) return callback(err);
-
-        if (data) {
-          var results = [];
-          for (var i = 0; i < data.length; ++i) {
-            var item = data[i];
-            results.push(
-              new Item(
-                item.ID,
-                item.CALLNO,
-                item.AUTHOR,
-                item.TITLE,
-                item.PUB_INFO,
-                item.DESCRIPT,
-                item.SERIES,
-                item.ADD_AUTHOR,
-                item.UPDATE_COUNT
-              )
-            );
-          }
-          callback(null, results);
-        } else {
-          callback(null, null);
-        }
+Item.findOneByItemId = function (itemId) {
+  return new Promise((resolve, reject) => {
+    db.pool.getConnection(function (err, connection) {
+      if (err) {
+        reject(err);
+        return;
       }
-    );
-  });
-};
 
-/* Counts the number of titles in the items table matching the provided query */
-Item.countMatches = function (query, callback) {
-  db.pool.getConnection(function (err, connection) {
-    connection.query(
-      "SELECT COUNT(*) FROM items WHERE title LIKE ?;",
-      [`%${query}%`],
-      function (err, data) {
+      connection.query("SELECT * FROM items WHERE ID = ?", [itemId], function (err, data) {
         connection.release();
-        if (err) return callback(err);
-
-        if (data) {
-          var results = data[0];
-
-          callback(null, results);
-        } else {
-          callback(null, null);
+        if (err) {
+          reject(err);
+          return;
         }
-      }
-    );
-  });
-};
 
-/* Retrieves the book details of the provided book ID */
-Item.retrieve = function (id, callback) {
-  db.pool.getConnection(function (err, connection) {
-    connection.query(
-      "SELECT * FROM items WHERE ID = ?;",
-      [Number(id)],
-      function (err, data) {
-        connection.release();
-        if (err) return callback(err);
-
-        if (data) {
-          var results = data[0];
-
-          callback(null, results);
+        if (data && data.length > 0) {
+          var itemData = data[0];
+          var item = new Item(itemData.ID, itemData.CALLNO, itemData.AUTHOR, itemData.TITLE, itemData.PUB_INFO, itemData.DESCRIPT, itemData.SERIES, itemData.ADD_AUTHOR, itemData.UPDATE_COUNT);
+          resolve(item);
         } else {
-          callback(null, null);
+          resolve(null);
         }
-      }
-    );
+      });
+    });
   });
 };
 
